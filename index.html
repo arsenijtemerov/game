@@ -2,18 +2,110 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Игры</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ретро Игры</title>
     <style>
-        body { font-family: sans-serif; background: #222; color: #fff; text-align: center; padding: 20px; }
-        h1 { color: #e94560; }
-        .game-link { display: inline-block; margin: 20px; padding: 20px 40px; background: #e94560; color: #fff; text-decoration: none; border-radius: 10px; font-size: 24px; }
-        .game-link:hover { background: #ff6b6b; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a1a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        h1 {
+            color: #fff;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+        }
+        .subtitle {
+            color: #556;
+            font-size: 0.9em;
+            margin-bottom: 40px;
+            letter-spacing: 3px;
+        }
+        .games {
+            display: flex;
+            gap: 25px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .game-card {
+            width: 180px;
+            height: 200px;
+            background: #0d0d20;
+            border: 2px solid #334;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--accent);
+        }
+        .game-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent);
+            box-shadow: 0 10px 30px var(--shadow);
+        }
+        .game-card:hover .icon {
+            transform: scale(1.1);
+        }
+        .game-card.tetris { --accent: #00ffcc; --shadow: #00ffcc33; }
+        .game-card.arkanoid { --accent: #ff6644; --shadow: #ff664433; }
+        .game-card.snake { --accent: #44ff88; --shadow: #44ff8833; }
+        .icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            transition: transform 0.3s ease;
+        }
+        .game-name {
+            color: #fff;
+            font-size: 1.2em;
+            letter-spacing: 2px;
+        }
+        .game-desc {
+            color: #556;
+            font-size: 0.7em;
+            margin-top: 8px;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
-    <h1>Выберите игру</h1>
-    <a class="game-link" href="snake.html">Змейка</a>
-    <a class="game-link" href="tetris.html">Тетрис</a>
-    <a class="game-link" href="arkanoid.html">Арканоид</a>
+    <h1>Ретро Игры</h1>
+    <p class="subtitle">ВЫБЕРИТЕ ИГРУ</p>
+    <div class="games">
+        <a href="tetris/index.html" class="game-card tetris">
+            <div class="icon">🧱</div>
+            <div class="game-name">ТЕТРИС</div>
+            <div class="game-desc">Классика</div>
+        </a>
+        <a href="arkanoid/index.html" class="game-card arkanoid">
+            <div class="icon">🪨</div>
+            <div class="game-name">АРКАНОИД</div>
+            <div class="game-desc">Аркада</div>
+        </a>
+        <a href="snake/index.html" class="game-card snake">
+            <div class="icon">🐍</div>
+            <div class="game-name">ЗМЕЙКА</div>
+            <div class="game-desc">Головоломка</div>
+        </a>
+    </div>
 </body>
 </html>

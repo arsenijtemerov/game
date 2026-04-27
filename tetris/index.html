@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tetris</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a1a; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff; flex-direction: column; }
+h1 { color: #00ffcc; text-shadow: 0 0 20px #00ffcc88; margin-bottom: 10px; font-size: 2em; letter-spacing: 4px; }
+#gameArea { display: flex; gap: 20px; align-items: flex-start; }
+canvas { border: 2px solid #00ffcc; box-shadow: 0 0 30px #00ffcc44, inset 0 0 30px #00000088; border-radius: 4px; }
+#sidePanel { display: flex; flex-direction: column; gap: 15px; width: 160px; }
+.sideCanvas { border: 2px solid #334; box-shadow: 0 0 15px #00ffcc22; border-radius: 4px; background: #0d0d20; }
+.sideLabel { color: #00ffcc; font-size: 0.75em; text-transform: uppercase; letter-spacing: 2px; text-align: center; margin-top: 5px; }
+.statBox { background: #0d0d20; border: 2px solid #334; border-radius: 4px; padding: 10px; text-align: center; }
+.statLabel { color: #556; font-size: 0.7em; text-transform: uppercase; letter-spacing: 2px; }
+.statValue { color: #00ffcc; font-size: 1.4em; font-weight: bold; text-shadow: 0 0 10px #00ffcc66; }
+#overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; border-radius: 4px; }
+#overlay h2 { color: #00ffcc; font-size: 2em; margin-bottom: 15px; text-shadow: 0 0 20px #00ffcc88; }
+#overlay p { color: #aab; margin-bottom: 20px; font-size: 0.9em; text-align: center; line-height: 1.8; }
+#overlay input { background: #1a1a30; border: 2px solid #00ffcc; color: #00ffcc; padding: 10px 25px; font-size: 1em; cursor: pointer; border-radius: 4px; transition: all 0.2s; letter-spacing: 2px; }
+#overlay input:hover { background: #00ffcc; color: #0a0a1a; box-shadow: 0 0 20px #00ffcc66; }
+#controls { color: #445; font-size: 0.7em; text-align: center; margin-top: 15px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<h1>TETRIS</h1>
+<div id="gameArea">
+<div style="position:relative">
+<canvas id="board"></canvas>
+<div id="overlay">
+<h2>TETRIS</h2>
+<p>← → движение<br>↑ вращение<br>↓ сброс<br>пробел пауза</p>
+<input type="button" value="СТАРТ" id="startBtn">
+</div>
+</div>
+<div id="sidePanel">
+<canvas id="nextBox" class="sideCanvas" width="140" height="90"></canvas>
+<div class="sideLabel">Следующая</div>
+<div class="statBox"><div class="statLabel">Счёт</div><div class="statValue" id="score">0</div></div>
+<div class="statBox"><div class="statLabel">Уровень</div><div class="statValue" id="level">1</div></div>
+<div class="statBox"><div class="statLabel">Линии</div><div class="statValue" id="lines">0</div></div>
+</div>
+</div>
+</div>
+<div id="controls">← → ДВИЖЕНИЕ &nbsp;|&nbsp; ↑ ВРАЩЕНИЕ &nbsp;|&nbsp; ↓ СБРОС &nbsp;|&nbsp; ПРОБЕЛ ПАУЗА</div>
+
+<script>
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+const nextCanvas = document.getElementById('nextBox');
+const nextCtx = nextCanvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const startBtn = document.getElementById('startBtn');
+
+const COLS = 10;
+const ROWS = 20;
+const BSIZE = 30;
+canvas.width = COLS * BSIZE;
+canvas.height = ROWS * BSIZE;
+
+const PIECES = [
+  [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+  [[0,0,0,0],[0,1,1,0],[0,1,1,0],[0,0,0,0]],
+  [[0,0,0,0],[1,1,1,0],[0,0,1,0],[0,0,0,0]],
+  [[0,0,0,0],[1,1,1,0],[1,0,0,0],[0,0,0,0]],
+  [[0,0,0,0],[0,1,1,0],[0,0,1,0],[0,0,1,0]],
+  [[0,0,0,0],[0,1,1,0],[1,1,0,0],[0,0,0,0]],
+  [[0,0,0,0],[0,0,1,0],[1,1,1,0],[0,0,0,0]]
+];
+
+const COLORS = ['#00ffcc','#ff4466','#4488ff','#ffaa22','#44ff88','#aa44ff','#ff6644'];
+const DARK_COLORS = ['#006655','#661122','#112266','#665500','#116633','#441166','#662211'];
+const GLOW_COLORS = ['#00ffcc','#ff4466','#4488ff','#ffaa22','#44ff88','#aa44ff','#ff6644'];
+
+const KICKS_NORMAL = [
+  [[0,0],[-1,0],[-1,-1],[1,0],[1,-1]],
+  [[0,0],[-1,0],[-1,1],[1,0],[1,1]],
+  [[0,0],[1,0],[1,1],[-1,0],[-1,1]],
+  [[0,0],[1,0],[1,-1],[-1,0],[-1,-1]]
+];
+
+const KICKS_I = [
+  [[0,0],[-2,0],[1,0],[-2,-1],[1,-2]],
+  [[0,0],[-1,0],[2,0],[-1,2],[2,-1]],
+  [[0,0],[1,0],[-2,0],[1,2],[-2,1]],
+  [[0,0],[2,0],[-1,0],[2,1],[-1,-2]]
+];
+
+let board, piece, currentX, currentY, currentRot, pieceIndex, nextIndex, score, level, lines, gameOver, paused, lastDrop, animFrame, ghostY, bag;
+
+function init() {
+  board = Array.from({length: ROWS}, () => Array(COLS).fill(-1));
+  bag = [];
+  pieceIndex = nextIndex = 0;
+  score = lines = 0;
+  level = 1;
+  gameOver = false;
+  paused = false;
+  lastDrop = performance.now();
+  animFrame = null;
+  currentX = 3; currentY = 0; currentRot = 0;
+  piece = getPiece(0);
+  nextIndex = nextPiece();
+  overlay.style.display = 'none';
+  updateUI();
+  requestAnimationFrame(gameLoop);
+}
+
+function shuffleBag() {
+  let b = [0,1,2,3,4,5,6];
+  for (let i = b.length - 1; i > 0; i--) {
+    let j = Math.floor(Math.random() * (i + 1));
+    [b[i], b[j]] = [b[j], b[i]];
+  }
+  return b;
+}
+
+function nextPiece() {
+  if (bag.length === 0) bag = shuffleBag();
+  return bag.pop();
+}
+
+function getPiece(idx) {
+  return PIECES[idx].map(r => [...r]);
+}
+
+function rotate(mat, dir) {
+  let s = mat.length;
+  let res = Array.from({length: s}, () => Array(s).fill(0));
+  for (let y = 0; y < s; y++)
+    for (let x = 0; x < s; x++)
+      res[y][x] = dir > 0 ? mat[s-1-x][y] : mat[x][s-1-y];
+  return res;
+}
+
+function canPlace(mat, px, py) {
+  for (let y = 0; y < 4; y++) {
+    for (let x = 0; x < 4; x++) {
+      if (mat[y][x]) {
+        let bx = px + x, by = py + y;
+        if (bx < 0 || bx >= COLS || by >= ROWS) return false;
+        if (by >= 0 && board[by][bx] >= 0) return false;
+      }
+    }
+  }
+  return true;
+}
+
+function findGhostY() {
+  let gy = currentY;
+  while (canPlace(piece, currentX, gy + 1)) gy++;
+  return gy;
+}
+
+function lock() {
+  let cleared = new Set();
+  for (let y = 0; y < 4; y++) {
+    for (let x = 0; x < 4; x++) {
+      if (piece[y][x]) {
+        let by = currentY + y;
+        let bx = currentX + x;
+        if (by >= 0) {
+          board[by][bx] = pieceIndex;
+          if (by > 0 && board[by].every(c => c >= 0)) cleared.add(by);
+        }
+      }
+    }
+  }
+  if (cleared.size > 0) {
+    let arr = Array.from(cleared).sort((a,b) => b - a);
+    arr.forEach(row => {
+      board.splice(row, 1);
+      board.unshift(Array(COLS).fill(-1));
+    });
+    let pts = [0,100,300,700,1500];
+    score += pts[arr.length] * level;
+    lines += arr.length;
+    let newLevel = Math.floor(lines / 10) + 1;
+    if (newLevel > level) level = newLevel;
+    updateUI();
+  }
+  piece = getPiece(nextIndex);
+  pieceIndex = nextIndex;
+  nextIndex = nextPiece();
+  currentX = 3; currentY = 0; currentRot = 0;
+  if (!canPlace(piece, currentX, currentY)) {
+    gameOver = true;
+    overlay.style.display = 'flex';
+    overlay.querySelector('h2').textContent = 'GAME OVER';
+    overlay.querySelector('p').innerHTML = 'Счёт: ' + score + '<br>Уровень: ' + level;
+    startBtn.value = 'ЗАНОВО';
+  }
+}
+
+function updateUI() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('level').textContent = level;
+  document.getElementById('lines').textContent = lines;
+}
+
+let particles = [];
+let flashAlpha = 0;
+let pulseTime = 0;
+
+function spawnParticles(cx, cy, color) {
+  for (let i = 0; i < 8; i++) {
+    let a = Math.random() * Math.PI * 2;
+    let spd = 1 + Math.random() * 3;
+    particles.push({
+      x: cx * BSIZE + BSIZE/2,
+      y: cy * BSIZE + BSIZE/2,
+      vx: Math.cos(a) * spd,
+      vy: Math.sin(a) * spd,
+      life: 1,
+      color: color,
+      size: 2 + Math.random() * 3
+    });
+  }
+}
+
+function drawBlock(x, y, colorIdx, alpha) {
+  let cx = COLORS[colorIdx];
+  let dx = DARK_COLORS[colorIdx];
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = cx;
+  ctx.fillRect(x * BSIZE + 1, y * BSIZE + 1, BSIZE - 2, BSIZE - 2);
+  ctx.fillStyle = dx;
+  ctx.fillRect(x * BSIZE + 1, y * BSIZE + 2, BSIZE - 2, 4);
+  ctx.fillRect(x * BSIZE + 2, y * BSIZE + 1, 4, BSIZE - 2);
+  ctx.fillStyle = cx;
+  ctx.globalAlpha = alpha * 0.5;
+  ctx.fillRect(x * BSIZE + 3, y * BSIZE + 3, BSIZE/3, BSIZE/3);
+  ctx.globalAlpha = 1;
+}
+
+function drawGhost(x, y, colorIdx) {
+  ctx.globalAlpha = 0.15;
+  ctx.fillStyle = COLORS[colorIdx];
+  ctx.fillRect(x * BSIZE + 2, y * BSIZE + 2, BSIZE - 4, BSIZE - 4);
+  ctx.globalAlpha = 1;
+}
+
+function drawNextPiece() {
+  nextCtx.fillStyle = '#0d0d20';
+  nextCtx.fillRect(0, 0, 140, 90);
+  let mat = getPiece(nextIndex);
+  let offX = 35, offY = 20;
+  for (let y = 0; y < 4; y++) {
+    for (let x = 0; x < 4; x++) {
+      if (mat[y][x]) {
+        let col = COLORS[nextIndex];
+        nextCtx.fillStyle = col;
+        nextCtx.fillRect(offX + x * 22, offY + y * 18, 20, 16);
+        nextCtx.fillStyle = DARK_COLORS[nextIndex];
+        nextCtx.fillRect(offX + x * 22, offY + y * 18 + 1, 20, 4);
+        nextCtx.fillStyle = col;
+        nextCtx.globalAlpha = 0.5;
+        nextCtx.fillRect(offX + x * 22 + 2, offY + y * 18 + 2, 8, 8);
+        nextCtx.globalAlpha = 1;
+      }
+    }
+  }
+}
+
+function gameLoop(now) {
+  if (gameOver) return;
+  animFrame = requestAnimationFrame(gameLoop);
+  if (paused) return;
+
+  let dropSpeed = Math.max(50, 1000 - (level - 1) * 80);
+  if (now - lastDrop > dropSpeed) {
+    if (canPlace(piece, currentX, currentY + 1)) {
+      currentY++;
+    } else {
+      lock();
+    }
+    lastDrop = now;
+  }
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.1;
+    p.life -= 0.03;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  pulseTime += 0.05;
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (board[y][x] >= 0) {
+        drawBlock(x, y, board[y][x], 1);
+      }
+    }
+  }
+
+  let ghost = findGhostY();
+  if (ghost !== currentY && pieceIndex >= 0) {
+    for (let py = 0; py < 4; py++) {
+      for (let px = 0; px < 4; px++) {
+        if (piece[py][px]) {
+          drawGhost(currentX + px, ghost + py, pieceIndex);
+        }
+      }
+    }
+  }
+
+  let pulse = Math.sin(pulseTime) * 0.1 + 0.9;
+  for (let py = 0; py < 4; py++) {
+    for (let px = 0; px < 4; px++) {
+      if (piece[py][px]) {
+        let gy = currentY + py;
+        if (gy >= 0) {
+          drawBlock(currentX + px, gy, pieceIndex, pulse);
+        }
+      }
+    }
+  }
+
+  for (let p of particles) {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  drawNextPiece();
+}
+
+document.addEventListener('keydown', e => {
+  if (gameOver) return;
+  if (e.key === ' ' || e.key === 'Escape') {
+    paused = !paused;
+    return;
+  }
+  if (paused) return;
+  if (e.key === 'ArrowLeft') {
+    if (canPlace(piece, currentX - 1, currentY)) currentX--;
+  } else if (e.key === 'ArrowRight') {
+    if (canPlace(piece, currentX + 1, currentY)) currentX++;
+  } else if (e.key === 'ArrowDown') {
+    if (canPlace(piece, currentX, currentY + 1)) {
+      currentY++;
+      score += 1;
+      updateUI();
+    }
+  } else if (e.key === 'ArrowUp') {
+    let newPiece = rotate(piece, 1);
+    let kicks = pieceIndex === 0 ? KICKS_I[currentRot] : KICKS_NORMAL[currentRot];
+    let placed = false;
+    for (let kick of kicks) {
+      let nx = currentX + kick[0];
+      let ny = currentY + kick[1];
+      if (canPlace(newPiece, nx, ny)) {
+        piece = newPiece;
+        currentX = nx;
+        currentY = ny;
+        currentRot = (currentRot + 1) % 4;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      let newPiece2 = rotate(piece, -1);
+      if (canPlace(newPiece2, currentX, currentY)) {
+        piece = newPiece2;
+        currentRot = (currentRot + 3) % 4;
+      }
+    }
+  }
+  e.preventDefault();
+});
+
+startBtn.addEventListener('click', () => {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  init();
+});
+</script>
+</body>
+</html>
